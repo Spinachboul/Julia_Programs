@@ -1,0 +1,7 @@
+{
+    "julia.additionalArgs": [
+
+    ],
+    "julia.focusPlotNavigator": true,
+    "jupyter.themeMatplotlibPlots": true
+}

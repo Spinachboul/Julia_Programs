@@ -1,0 +1,111 @@
+
+using OrdinaryDiffEq, Elliptic, Printf, DiffEqPhysics, Statistics, DifferentialEquations, RecipesBase
+
+
+sol2q(sol) = [sol.u[i][j] for i in 1:length(sol.u), j in 1:length(sol.u[1])÷2]
+sol2p(sol) = [sol.u[i][j] for i in 1:length(sol.u), j in length(sol.u[1])÷2+1:length(sol.u[1])]
+sol2tqp(sol) = (sol.t, sol2q(sol), sol2p(sol))
+
+# The exact solutions of single pendulums can be expressed by the Jacobian elliptic functions.
+sn(u, k) = Jacobi.sn(u, k^2) # the Jacobian sn function
+
+# Define a color list for plotting
+colorlist = [
+    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+]
+cc(k) = colorlist[mod1(k, length(colorlist))]
+
+# Plot the solution of a Hamiltonian problem
+function plotsol(sol::ODESolution)
+    t, q, p = sol2tqp(sol)
+    d = size(q)[2]
+    for j in 1:d
+        j_str = d > 1 ? "[$j]" : ""
+        plot(t, q[:,j], color=cc(2j-1), label="q$(j_str)", lw=1)
+        plot!(t, p[:,j], color=cc(2j), label="p$(j_str)", lw=1, ls="--")
+    end
+    plot!(grid=true, linestyle=:dot)  # Add grid with appropriate linestyle
+    xlabel!("t")  # Update x-axis label
+    ylabel!("q, p")  # Update y-axis label
+    plot!(legend=:bottomleft)
+end
+
+# Plot the solution of a Hamiltonian problem on the 2D phase space
+function plotsol2(sol::ODESolution)
+    t, q, p = sol2tqp(sol)
+    d = size(q)[2]
+    for j in 1:d
+        j_str = d > 1 ? "[$j]" : ""
+        plot(q[:,j], p[:,j], color=cc(j), label="(q$(j_str),p$(j_str))", lw=1)
+    end
+    plot!(grid=true, linestyle=:dot)  # Add grid with appropriate linestyle
+    xlabel!("q")  # Update x-axis label
+    ylabel!("p")  # Update y-axis label
+    plot!(legend=:bottomleft)
+end
+
+# Plot the energy of a Hamiltonian problem
+function plotenergy(H, sol::ODESolution)
+    t, q, p = sol2tqp(sol)
+    energy = [H(q[i,:], p[i,:], nothing) for i in 1:size(q)[1]]
+    plot(t, energy, label="energy", color="red", lw=1)
+    plot!(grid=true, linestyle=:dot)  # Add grid with appropriate linestyle
+    xlabel!("t")  # Update x-axis label
+    ylabel!("Energy")  # Update y-axis label
+    plot!(legend=:bottomleft)
+    stdenergy_str = @sprintf("%.3e", std(energy))
+    title!("std(energy) = $stdenergy_str", fontsize=10)  # Update title
+end
+
+# Plot the numerical and exact solutions of a single pendulum
+function plotcomparison(k, sol::ODESolution)
+    t, q, p = sol2tqp(sol)
+    y = sin.(q/2)
+    y_exact = k*sn.(t, k) # the exact solution
+
+    plot(t, y, label="numerical", lw=1)
+    plot!(t, y_exact, label="exact", lw=1, ls="--")
+    plot!(grid=true, linestyle=:dot)  # Add grid with appropriate linestyle
+    xlabel!("t")  # Update x-axis label
+    ylabel!("y = sin(q(t)/2)")  # Update y-axis label
+    plot!(legend=:bottomleft)
+    error_str = @sprintf("%.3e", maximum(abs.(y - y_exact)))
+    title!("maximum(abs(numerical - exact)) = $error_str", fontsize=10)
+end
+
+# Plot solution and energy
+function plotsolenergy(H, integrator, Δt, sol::ODESolution)
+    integrator_str = replace("$integrator", r"^[^.]*\." => "")
+
+    p1 = plot()
+    plotsol(sol)
+    p2 = plot()
+    plotsol2(sol)
+    p3 = plot()
+    plotenergy(H, sol)
+
+    plot(p1, p2, p3, layout=(3,1))
+    title!("=====    $integrator_str,   Δt = $Δt    =====")
+end
+
+# Solve a single pendulum
+function singlependulum(k, integrator, Δt; t0 = 0.0, t1 = 100.0)
+    H(p,q,params) = p[1]^2/2 - cos(q[1]) + 1
+    q0 = [0.0]
+    p0 = [2k]
+    prob = HamiltonianProblem(H, p0, q0, (t0, t1))
+
+    integrator_str = replace("$integrator", r"^[^.]*\." => "")
+    @printf("%-25s", "$integrator_str:")
+    sol = solve(prob, integrator, dt=Δt)
+    @time sol = solve(prob, integrator, dt=Δt)
+
+    plotsolenergy(H, integrator, Δt, sol)
+end
+
+# Testing the function
+k = rand()
+integrator = VelocityVerlet()
+Δt = 0.1
+singlependulum(k, integrator, Δt;  t0=-20.0, t1=20.0)
