@@ -1,5 +1,7 @@
 using LinearAlgebra
 
+abstract type AbstractSurrogate end
+
 mutable struct GEK{X, Y, L, U, P, T, M, B, S, R} <: AbstractSurrogate
     x::X
     y::Y
