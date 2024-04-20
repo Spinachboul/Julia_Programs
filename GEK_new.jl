@@ -138,3 +138,16 @@ function _check_dimension(k::GEK, val)
         throw(DimensionMismatch("Input dimension does not match surrogate dimension"))
     end
 end
+
+using Profile
+using Random
+n = 100
+d = 2
+x = rand(n, d)
+y = rand(n)
+lb = zeros(d)
+ub = ones(d)
+# k = GEK(x, y, lb, ub)
+Profile.clear()
+@profile _calc_gek_coeffs(x, y, lb, ub)
+Profile.print()
