@@ -106,50 +106,40 @@ function _calc_gek_coeffs(x, y, p, theta)
     d = length(x[1])
     R = zeros(eltype(x[1]), nd, nd)
 
-    #top left
-    @inbounds for i in 1:n
-        for j in 1:n
-            R[i, j] = prod([exp(-theta[l] * (x[i][l] - x[j][l])) for l in 1:d])
-        end
+    # Top left
+    @inbounds for i in 1:n, j in 1:n
+        R[i, j] = prod([exp(-theta[l] * (x[i, l] - x[j, l])) for l in 1:d]) # Corrected indexing here
     end
 
-    #top right
-    @inbounds for i in 1:n
+    # Top right
+    @inbounds for i in 1:n, j in (n + 1):d:nd
         jr = 1
-        for j in (n + 1):d:nd
-            for l in 1:d
-                R[i, j + l - 1] = +2 * theta[l] * (x[i][l] - x[jr][l]) * R[i, jr]
-            end
-            jr = jr + 1
+        for l in 1:d
+            R[i, j + l - 1] = +2 * theta[l] * (x[i, l] - x[jr, l]) * R[i, jr] # Corrected indexing here
         end
+        jr += 1
     end
 
-    #bottom left
-    @inbounds for j in 1:n
+    # Bottom left
+    @inbounds for j in 1:n, i in (n + 1):d:nd
         ir = 1
-        for i in (n + 1):d:nd
-            for l in 1:d
-                R[i + l - 1, j] = -2 * theta[l] * (x[ir][l] - x[j][l]) * R[ir, j]
-            end
-            ir = ir + 1
+        for l in 1:d
+            R[i + l - 1, j] = -2 * theta[l] * (x[ir, l] - x[j, l]) * R[ir, j] # Corrected indexing here
         end
+        ir += 1
     end
 
-    #bottom right
-    ir = 1
-    @inbounds for i in (n + 1):d:nd
-        for j in (n + 1):d:nd
-            jr = 1
-            for l in 1:d
-                for k in 1:d
-                    R[i + l - 1, j + k - 1] = -4 * theta[l] * theta[k] *
-                                              (x[ir][l] - x[jr][l]) *
-                                              (x[ir][k] - x[jr][k]) * R[ir, jr]
-                end
+    # Bottom right
+    @inbounds for i in (n + 1):d:nd, j in (n + 1):d:nd
+        ir = 1
+        for l in 1:d, k in 1:d
+            for jr in 1:d
+                R[i + l - 1, j + k - 1] -= 4 * theta[l] * theta[k] *
+                                           (x[ir, l] - x[jr, l]) *
+                                           (x[ir, k] - x[jr, k]) * R[ir, jr] # Corrected indexing here
             end
-            jr = jr + 1
         end
-        ir = ir + +1
+        ir += 1
     end
 
     one = ones(eltype(x[1]), nd, 1)
@@ -161,8 +151,9 @@ function _calc_gek_coeffs(x, y, p, theta)
     mu = (one_t * inverse_of_R * y) / (one_t * inverse_of_R * one)
     b = inverse_of_R * (y - one * mu)
     sigma = ((y - one * mu)' * inverse_of_R * (y - one * mu)) / n
-    mu[1], b, sigma[1], inverse_of_R
+    return mu[1], b, sigma[1], inverse_of_R
 end
+
 
 function std_error_at_point(k::GEK, val)
 
